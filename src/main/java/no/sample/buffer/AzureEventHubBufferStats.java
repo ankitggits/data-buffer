@@ -1,26 +1,29 @@
 package no.sample.buffer;
 
 import com.microsoft.azure.eventhubs.EventData;
+import lombok.Synchronized;
+
+import java.util.concurrent.atomic.AtomicLong;
 
 class AzureEventHubBufferStats implements BufferStats<EventData> {
 
     private final long maxSize;
     private final long maxPayloadLength;
-
-    private volatile long size;
-    private volatile long payloadLength;
+    private volatile Meta meta;
 
     AzureEventHubBufferStats(long maxSize, long maxPayloadLength) {
         this.maxSize = maxSize;
         this.maxPayloadLength = maxPayloadLength;
+        meta = new Meta();
+        reset();
     }
 
     @Override
     public boolean isFull() {
-        if(this.payloadLength >= maxPayloadLength) {
+        if(this.meta.payloadLength.longValue() >= maxPayloadLength) {
             System.out.println("Buffer payload limit reached, emitting data");
             return true;
-        } else if(this.size >= maxSize){
+        } else if(this.meta.size.longValue() >= maxSize){
             System.out.println("Buffer size limit reached, emitting data");
             return true;
         } else{
@@ -31,13 +34,18 @@ class AzureEventHubBufferStats implements BufferStats<EventData> {
 
     @Override
     public void append(EventData eventData) {
-        this.size++;
-        this.payloadLength +=  eventData.getBodyLength();
+        this.meta.size.incrementAndGet();
+        this.meta.payloadLength.accumulateAndGet(eventData.getBodyLength(), (left, right) -> left+right);
     }
 
     @Override
     public void reset() {
-        this.size = 0;
-        this.payloadLength = 0;
+        this.meta.size = new AtomicLong();
+        this.meta.payloadLength = new AtomicLong();
+    }
+
+    private static class Meta{
+        private volatile AtomicLong size;
+        private volatile AtomicLong payloadLength;
     }
 }

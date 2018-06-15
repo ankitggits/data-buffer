@@ -1,5 +1,6 @@
 package no.sample.buffer;
 
+import lombok.Synchronized;
 import rx.Observable;
 import rx.Subscriber;
 
@@ -32,6 +33,7 @@ class EventDataBufferOperator<T> implements Observable.Operator<List<T>, T> {
             this.bufferStats = bufferStats;
         }
 
+        @Synchronized
         @Override
         public void onNext(T t) {
             buffer.add(t);
