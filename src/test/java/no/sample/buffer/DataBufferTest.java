@@ -118,7 +118,7 @@ public class DataBufferTest {
         int number = 10;
 
         new MultithreadingTester()
-                                .numThreads(2)
+                                .numThreads(3)
                                 .numRoundsPerThread(1)
                                 .add(() -> getEventData(String.valueOf(Thread.currentThread().getId()), start, number).forEach(next->{
                                     printMatrix(start, number, next);
@@ -127,7 +127,7 @@ public class DataBufferTest {
                                 .run();
 
         subject.onCompleted();
-        wait.until(() -> validate(12, 5));
+        wait.until(() -> validate(6, 5));
     }
 
     private void printMatrix(int start, int number, EventData next) {
