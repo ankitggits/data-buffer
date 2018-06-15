@@ -1,11 +1,11 @@
 package no.sample.buffer;
 
 import com.microsoft.azure.eventhubs.EventData;
-import lombok.Synchronized;
+import no.sample.buffer.BufferStats;
 
 import java.util.concurrent.atomic.AtomicLong;
 
-class AzureEventHubBufferStats implements BufferStats<EventData> {
+public class AzureEventHubBufferStats implements BufferStats<EventData> {
 
     private final long maxSize;
     private final long maxPayloadLength;

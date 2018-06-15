@@ -7,11 +7,11 @@ import rx.Subscriber;
 import java.util.ArrayList;
 import java.util.List;
 
-class EventDataBufferOperator<T> implements Observable.Operator<List<T>, T> {
+class BufferOperator<T> implements Observable.Operator<List<T>, T> {
 
     private final BufferStats<T> bufferStats;
 
-    EventDataBufferOperator(BufferStats<T> bufferStats) {
+    BufferOperator(BufferStats<T> bufferStats) {
         this.bufferStats = bufferStats;
     }
 
@@ -33,6 +33,7 @@ class EventDataBufferOperator<T> implements Observable.Operator<List<T>, T> {
             this.bufferStats = bufferStats;
         }
 
+        //TODO: remove sync
         @Synchronized
         @Override
         public void onNext(T t) {

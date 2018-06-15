@@ -3,12 +3,10 @@ package no.sample.buffer;
 import com.googlecode.junittoolbox.MultithreadingTester;
 import com.googlecode.junittoolbox.PollingWait;
 import com.microsoft.azure.eventhubs.EventData;
+import lombok.Getter;
 import org.json.JSONObject;
 import org.junit.*;
-import rx.Observable;
 import rx.functions.Action1;
-import rx.schedulers.Schedulers;
-import rx.subjects.PublishSubject;
 
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
@@ -21,6 +19,10 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class DataBufferTest {
 
     private static List<List<String>> result = new ArrayList<>();
+
+    private PollingWait wait = new PollingWait().timeoutAfter(10, SECONDS)
+            .pollEvery(100, MILLISECONDS);
+
 
     private static final Action1<List<EventData>> ACTION = events -> {
         if(events.isEmpty()){
@@ -42,77 +44,34 @@ public class DataBufferTest {
         }
     };
 
-    private static final Action1<List<EventData>> TEST_ACTION = events -> {
-        Assert.assertTrue(events.size() == 5);
-    };
-
     @Before
     public void clear(){
         result.clear();
     }
 
-    @Ignore
-    @Test
-    public void test()  {
-
-        EventDataBufferOperator<EventData> bufferUntilOperator = new EventDataBufferOperator<>(new AzureEventHubBufferStats(5, 600));
-
-        List<EventData> events = getEventData("Sample", 1, 50);
-
-        Observable<List<EventData>> lift = Observable
-                .from(events)
-                .lift(bufferUntilOperator);
-        lift.subscribe(ACTION, Throwable::printStackTrace);
-        lift.subscribe(TEST_ACTION);
-
-        Assert.assertEquals(10, result.size());
-    }
-
-    @Ignore
     @Test
     public void publishFromAnotherSourceTest() {
 
-        EventDataBufferOperator<EventData> bufferUntilOperator = new EventDataBufferOperator<>(new AzureEventHubBufferStats(5, 600));
-        PublishSubject<EventData> subject = PublishSubject.create();
-        Observable<List<EventData>> lift = subject.lift(bufferUntilOperator);
-        lift.subscribe(ACTION, Throwable::printStackTrace);
+        BufferPublisher<EventData> publisher = BufferBuilder.build(ACTION, new AzureEventHubBufferStats(5, 600));
 
         int start = 1;
         int number = 10;
 
-        getEventData("1", start, number).forEach(next->{
-            printMatrix(start, number, next);
-            subject.onNext(next);
-        });
-        getEventData("2", start, number).forEach(next->{
-            printMatrix(start, number, next);
-            subject.onNext(next);
-        });
-        getEventData("3", start, number).forEach(next->{
-            printMatrix(start, number, next);
-            subject.onNext(next);
-        });
+        for(int i = 1; i <= 3; i++){
+            getEventData(String.valueOf(i), start, number).forEach(next->{
+                printMatrix(start, number, next);
+                publisher.publish(next);
+            });
+        }
 
-        subject.onCompleted();
-        System.out.println(result);
+        publisher.finish();
         Assert.assertTrue(validate(6, 5));
     }
 
-    private boolean validate(int resultSize, int eachSize){
-        return result.size()==resultSize && result.stream().noneMatch(each-> each.size()!=eachSize);
-    }
-
-    private PollingWait wait = new PollingWait().timeoutAfter(10, SECONDS)
-            .pollEvery(100, MILLISECONDS);
-
-
-    @Ignore
     @Test
     public void asyncPublishFromAnotherSourceTest() {
-        EventDataBufferOperator<EventData> bufferUntilOperator = new EventDataBufferOperator<>(new AzureEventHubBufferStats(5, 600));
-        PublishSubject<EventData> subject = PublishSubject.create();
-        Observable<List<EventData>> lift = subject.lift(bufferUntilOperator);
-        lift.observeOn(Schedulers.computation()).subscribe(ACTION, Throwable::printStackTrace);
+
+        BufferPublisher<EventData> publisher = BufferBuilder.build(ACTION, new AzureEventHubBufferStats(5, 600));
 
         int start = 1;
         int number = 10;
@@ -122,12 +81,16 @@ public class DataBufferTest {
                                 .numRoundsPerThread(1)
                                 .add(() -> getEventData(String.valueOf(Thread.currentThread().getId()), start, number).forEach(next->{
                                     printMatrix(start, number, next);
-                                    subject.onNext(next);
+                                    publisher.publish(next);
                                 }))
                                 .run();
 
-        subject.onCompleted();
+        publisher.finish();
         wait.until(() -> validate(6, 5));
+    }
+
+    private boolean validate(int resultSize, int eachSize){
+        return result.size()==resultSize && result.stream().noneMatch(each-> each.size()!=eachSize);
     }
 
     private void printMatrix(int start, int number, EventData next) {
@@ -153,6 +116,21 @@ public class DataBufferTest {
             }
         }
         return events;
+    }
+
+    @Getter
+    private static class PushMessage {
+        private final String topic;
+        private final String content;
+
+        private PushMessage(String topic, String content) {
+            this.topic = topic;
+            this.content = content;
+        }
+
+        private String json() {
+            return "{\"topic\": \"" + topic + "\", \"content\": " + content + "}";
+        }
     }
 
 }
