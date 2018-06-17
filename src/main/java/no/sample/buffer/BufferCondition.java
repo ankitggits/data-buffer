@@ -1,6 +1,6 @@
 package no.sample.buffer;
 
-public interface BufferStats<T> {
+public interface BufferCondition<T> {
     boolean isFull();
     void append(T t);
     void reset();

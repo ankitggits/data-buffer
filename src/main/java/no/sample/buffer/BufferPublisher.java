@@ -1,5 +1,6 @@
 package no.sample.buffer;
 
+import lombok.Synchronized;
 import rx.subjects.PublishSubject;
 
 public class BufferPublisher<T> {
@@ -10,6 +11,8 @@ public class BufferPublisher<T> {
         this.subject = subject;
     }
 
+    //TODO: remove sync
+    @Synchronized
     public void publish(T t){
         subject.onNext(t);
     }

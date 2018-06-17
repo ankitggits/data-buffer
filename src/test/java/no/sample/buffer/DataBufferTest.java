@@ -12,6 +12,7 @@ import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -52,7 +53,7 @@ public class DataBufferTest {
     @Test
     public void publishFromAnotherSourceTest() {
 
-        BufferPublisher<EventData> publisher = BufferBuilder.build(ACTION, new AzureEventHubBufferStats(5, 600));
+        BufferPublisher<EventData> publisher = BufferBuilder.build(ACTION, new TestBufferCondition(5, 600));
 
         int start = 1;
         int number = 10;
@@ -71,7 +72,7 @@ public class DataBufferTest {
     @Test
     public void asyncPublishFromAnotherSourceTest() {
 
-        BufferPublisher<EventData> publisher = BufferBuilder.build(ACTION, new AzureEventHubBufferStats(5, 600));
+        BufferPublisher<EventData> publisher = BufferBuilder.build(ACTION, new TestBufferCondition(5, 600));
 
         int start = 1;
         int number = 10;
@@ -133,4 +134,50 @@ public class DataBufferTest {
         }
     }
 
+    private static class TestBufferCondition implements BufferCondition<EventData> {
+
+        private final long maxSize;
+        private final long maxPayloadLength;
+        private volatile Meta meta;
+
+        TestBufferCondition(long maxSize, long maxPayloadLength) {
+            this.maxSize = maxSize;
+            this.maxPayloadLength = maxPayloadLength;
+            meta = new Meta();
+            reset();
+        }
+
+        @Override
+        public boolean isFull() {
+            if(this.meta.payloadLength.longValue() >= maxPayloadLength) {
+                System.out.println("Buffer payload limit reached, emitting data");
+                return true;
+            } else if(this.meta.size.longValue() >= maxSize){
+                System.out.println("Buffer size limit reached, emitting data");
+                return true;
+            } else{
+                System.out.println("Buffer under limits, continue...");
+                return false;
+            }
+        }
+
+        @Override
+        public void append(EventData eventData) {
+            this.meta.size.incrementAndGet();
+            this.meta.payloadLength.accumulateAndGet(eventData.getBodyLength(), (left, right) -> left+right);
+        }
+
+        @Override
+        public void reset() {
+            this.meta.size = new AtomicLong();
+            this.meta.payloadLength = new AtomicLong();
+        }
+
+        private static class Meta{
+            private volatile AtomicLong size;
+            private volatile AtomicLong payloadLength;
+        }
+    }
+
 }
+

@@ -7,9 +7,9 @@ import java.util.List;
 
 public class BufferBuilder {
 
-    public static <T> BufferPublisher<T> build(Action1<List<T>> action, BufferStats<T> bufferStats){
+    public static <T> BufferPublisher<T> build(Action1<List<T>> action, BufferCondition<T> bufferCondition){
         PublishSubject<T> subject = PublishSubject.create();
-        subject.lift(new BufferOperator<>(bufferStats)).subscribe(action, Throwable::printStackTrace);
+        subject.lift(new BufferOperator<>(bufferCondition)).subscribe(action, Throwable::printStackTrace);
         return new BufferPublisher<T>(subject);
     }
 }

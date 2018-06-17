@@ -1,6 +1,5 @@
 package no.sample.buffer;
 
-import lombok.Synchronized;
 import rx.Observable;
 import rx.Subscriber;
 
@@ -9,15 +8,15 @@ import java.util.List;
 
 class BufferOperator<T> implements Observable.Operator<List<T>, T> {
 
-    private final BufferStats<T> bufferStats;
+    private final BufferCondition<T> bufferCondition;
 
-    BufferOperator(BufferStats<T> bufferStats) {
-        this.bufferStats = bufferStats;
+    BufferOperator(BufferCondition<T> bufferCondition) {
+        this.bufferCondition = bufferCondition;
     }
 
     @Override
     public Subscriber<? super T> call(Subscriber<? super List<T>> delegate) {
-        BufferWhileSubscriber parent = new BufferWhileSubscriber(delegate, bufferStats);
+        BufferWhileSubscriber parent = new BufferWhileSubscriber(delegate, bufferCondition);
         delegate.add(parent);
         return parent;
     }
@@ -25,24 +24,22 @@ class BufferOperator<T> implements Observable.Operator<List<T>, T> {
     private final class BufferWhileSubscriber extends Subscriber<T> {
 
         private final Subscriber<? super List<T>> actual;
-        private final BufferStats<T> bufferStats;
+        private final BufferCondition<T> bufferCondition;
         private List<T> buffer = new ArrayList<>();
 
-        private BufferWhileSubscriber(Subscriber<? super List<T>> actual, BufferStats<T> bufferStats) {
+        private BufferWhileSubscriber(Subscriber<? super List<T>> actual, BufferCondition<T> bufferCondition) {
             this.actual = actual;
-            this.bufferStats = bufferStats;
+            this.bufferCondition = bufferCondition;
         }
 
-        //TODO: remove sync
-        @Synchronized
         @Override
         public void onNext(T t) {
             buffer.add(t);
-            bufferStats.append(t);
-            if (bufferStats.isFull()) {
+            bufferCondition.append(t);
+            if (bufferCondition.isFull()) {
                 actual.onNext(buffer);
                 buffer = new ArrayList<>();
-                bufferStats.reset();
+                bufferCondition.reset();
             }
         }
 
