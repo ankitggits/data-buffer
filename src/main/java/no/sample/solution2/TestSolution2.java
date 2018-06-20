@@ -1,27 +1,49 @@
 package no.sample.solution2;
 
-import reactor.core.publisher.UnicastProcessor;
-import rx.Observable;
-import rx.schedulers.Schedulers;
+import reactor.core.publisher.WorkQueueProcessor;
 
 import java.util.List;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class TestSolution2 {
     public static void main(String[] args) throws InterruptedException {
-        BlockingQueue<String> blockingQueue = new ArrayBlockingQueue<String>(100);
-        UnicastProcessor<String> unicastProcessor = UnicastProcessor.create(blockingQueue);
-        startTask(new Producer(unicastProcessor));
+        WorkQueueProcessor<String> workQueueProcessor = WorkQueueProcessor
+                .<String>builder()
+                .requestTaskExecutor(Executors.newFixedThreadPool(3))
+                .bufferSize(64)
+                .build();
 
-        unicastProcessor
+        workQueueProcessor
                 .buffer(3)
-                .subscribe((s) -> {
-                    System.out.println(String.format("%s on thread %s", s, Thread.currentThread().getName()));
-                });
+                .subscribe(TestSolution2::loggingSubsciber);
 
+        workQueueProcessor
+                .buffer(5)
+                .subscribe(TestSolution2::loggingSubsciber);
+
+        workQueueProcessor
+                .buffer(8)
+                .subscribe(TestSolution2::loggingSubsciber);
+
+        startTask(new Producer(workQueueProcessor));
+    }
+
+    private static void loggingSubsciber(List<String> s) {
+        String name = Thread.currentThread().getName();
+        Pattern pattern = Pattern.compile("(?:.*)?-(\\d+)$");
+        Matcher matcher = pattern.matcher(name);
+        if (matcher.find()) {
+            Thread.currentThread().setName(String.format("Client-pool-%s", matcher.group(1)));
+        }
+        System.out.println(String.format("%s on thread %s", s, Thread.currentThread().getName()));
+        try {
+            Thread.sleep(10000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private static void startTask(Runnable task) {

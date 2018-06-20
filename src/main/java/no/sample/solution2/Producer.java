@@ -1,14 +1,13 @@
 package no.sample.solution2;
 
-import reactor.core.publisher.UnicastProcessor;
+import reactor.core.publisher.WorkQueueProcessor;
 
 import java.util.UUID;
-import java.util.concurrent.BlockingQueue;
 
 public class Producer implements Runnable {
-    private final UnicastProcessor<String> unicastProcessor;
+    private final WorkQueueProcessor<String> unicastProcessor;
 
-    public Producer(UnicastProcessor<String> unicastProcessor) {
+    public Producer(WorkQueueProcessor<String> unicastProcessor) {
         this.unicastProcessor = unicastProcessor;
     }
 
